@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Podcast Radio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --wood: #5b3a24; --wood-dark: #3d2616; --cream: #efe4cc; --cream-dim: #d9cba9;
+    --ink: #2a1d12; --amber: #ffb547; --red: #c8402c; --glass: #1c1712;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(ellipse at top, #2b2620, #121010 70%);
+    color: var(--ink); font-family: "DM Mono", ui-monospace, monospace;
+    display: grid; place-items: center; padding: 24px;
+  }
+  .radio {
+    width: min(920px, 100%);
+    background:
+      repeating-linear-gradient(92deg, rgba(0,0,0,.07) 0 2px, transparent 2px 9px),
+      linear-gradient(180deg, #6d4529, var(--wood) 40%, var(--wood-dark));
+    border-radius: 28px; padding: 26px;
+    box-shadow: 0 30px 80px rgba(0,0,0,.6), inset 0 2px 0 rgba(255,255,255,.12);
+  }
+  .face {
+    background: var(--cream); border-radius: 16px; padding: 22px 26px 26px;
+    box-shadow: inset 0 0 0 3px #c9b68c, inset 0 6px 18px rgba(0,0,0,.15);
+  }
+  .top { display: flex; justify-content: space-between; align-items: baseline; }
+  .brand { font-family: Fraunces, serif; font-size: 26px; letter-spacing: .5px; }
+  .brand small { font-family: "DM Mono"; font-size: 11px; letter-spacing: 3px; opacity: .6; margin-left: 10px; }
+  .status { font-size: 11px; letter-spacing: 1px; opacity: .65; text-transform: uppercase; }
+
+  /* tuning scale */
+  .dial {
+    position: relative; height: 92px; margin: 18px 0 20px;
+    background: linear-gradient(180deg, #2a221a, var(--glass));
+    border-radius: 10px; overflow: hidden; cursor: pointer; user-select: none; touch-action: none;
+    box-shadow: inset 0 3px 10px rgba(0,0,0,.7);
+  }
+  .dial.on { background: linear-gradient(180deg, #3a2a17, #1f170e); }
+  .ticks, .labels, .marks { position: absolute; inset: 0; }
+  .tick { position: absolute; bottom: 30px; width: 1px; background: var(--cream-dim); opacity: .45; }
+  .tick.big { height: 18px; opacity: .8; } .tick.small { height: 9px; }
+  .lbl { position: absolute; bottom: 10px; transform: translateX(-50%); font-size: 11px; color: var(--cream-dim); }
+  .mark {
+    position: absolute; top: 10px; transform: translateX(-50%);
+    font-size: 10px; color: var(--amber); opacity: .55; text-align: center; white-space: nowrap;
+  }
+  .mark::after { content: ""; display: block; width: 6px; height: 6px; margin: 4px auto 0; border-radius: 50%; background: var(--amber); }
+  .mark.active { opacity: 1; text-shadow: 0 0 8px var(--amber); }
+  .needle {
+    position: absolute; top: 6px; bottom: 6px; width: 3px; margin-left: -1.5px;
+    background: var(--red); box-shadow: 0 0 10px rgba(200,64,44,.8); border-radius: 2px;
+  }
+  .dial.on .ticks, .dial.on .labels { filter: drop-shadow(0 0 3px rgba(255,181,71,.6)); }
+
+  /* lower half */
+  .lower { display: grid; grid-template-columns: 1fr auto; gap: 26px; align-items: center; }
+  .screen {
+    display: grid; grid-template-columns: 96px 1fr; gap: 16px; align-items: center;
+    background: #e6d8b8; border-radius: 12px; padding: 14px; min-height: 124px;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,.18);
+  }
+  .art { width: 96px; height: 96px; border-radius: 8px; background: #cbb88f center/cover; display:grid; place-items:center; font-size: 30px; }
+  .freq { font-size: 13px; letter-spacing: 2px; opacity: .7; display: flex; gap: 10px; align-items: center; }
+  .pill { font-size: 10px; padding: 2px 7px; border-radius: 99px; background: var(--red); color: #fff; letter-spacing: 1.5px; }
+  .pill.replay { background: #6b5a3e; }
+  .show { font-family: Fraunces, serif; font-size: 20px; margin: 4px 0 2px; line-height: 1.15; }
+  .title { font-size: 13px; opacity: .8; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .bar { height: 4px; background: rgba(0,0,0,.12); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+  .bar > div { height: 100%; width: 0; background: var(--ink); }
+  .time { font-size: 11px; opacity: .6; margin-top: 4px; display: flex; justify-content: space-between; }
+
+  .controls { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .knob {
+    width: 118px; height: 118px; border-radius: 50%; cursor: grab; touch-action: none;
+    background: radial-gradient(circle at 35% 30%, #4a4038, #1d1814 70%);
+    box-shadow: 0 8px 18px rgba(0,0,0,.45), inset 0 2px 2px rgba(255,255,255,.15);
+    position: relative;
+  }
+  .knob::before {
+    content: ""; position: absolute; inset: 8px; border-radius: 50%;
+    background: repeating-conic-gradient(rgba(255,255,255,.07) 0 4deg, transparent 4deg 12deg);
+  }
+  .knob .dot { position: absolute; left: 50%; top: 10px; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: var(--cream); }
+  .knob:active { cursor: grabbing; }
+  .buttons { display: flex; gap: 8px; }
+  button {
+    font: inherit; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+    background: var(--ink); color: var(--cream); border: 0; border-radius: 8px; padding: 9px 12px; cursor: pointer;
+  }
+  button:disabled { opacity: .35; cursor: default; }
+  button.secondary { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+  .vol { display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 1.5px; opacity: .75; }
+  input[type=range] { accent-color: var(--ink); width: 110px; }
+
+  .power {
+    position: absolute; inset: 0; display: grid; place-items: center; background: rgba(18,16,16,.72);
+    border-radius: 28px; z-index: 5;
+  }
+  .power button { font-size: 14px; padding: 16px 28px; background: var(--amber); color: var(--ink); }
+  .wrap { position: relative; width: min(920px, 100%); }
+  .hint { color: #a89a80; font-size: 11px; text-align: center; margin-top: 14px; letter-spacing: .5px; }
+
+  @media (max-width: 640px) {
+    .lower { grid-template-columns: 1fr; }
+    .screen { grid-template-columns: 72px 1fr; } .art { width: 72px; height: 72px; }
+    .mark { font-size: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="radio">
+    <div class="face">
+      <div class="top">
+        <div class="brand">Podcast Radio <small>ALWAYS ON AIR</small></div>
+        <div class="status" id="status">warming up</div>
+      </div>
+
+      <div class="dial" id="dial">
+        <div class="ticks" id="ticks"></div>
+        <div class="labels" id="labels"></div>
+        <div class="marks" id="marks"></div>
+        <div class="needle" id="needle"></div>
+      </div>
+
+      <div class="lower">
+        <div class="screen">
+          <div class="art" id="art">📻</div>
+          <div>
+            <div class="freq"><span id="freq">--.- FM</span><span class="pill" id="pill" hidden>LIVE</span></div>
+            <div class="show" id="show">Static</div>
+            <div class="title" id="title">Turn the knob to find a station.</div>
+            <div class="bar"><div id="prog"></div></div>
+            <div class="time"><span id="pos"></span><span id="dur"></span></div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="knob" id="knob" title="Drag to tune"><div class="dot"></div></div>
+          <div class="buttons">
+            <button id="restart" disabled title="Start this episode from the beginning">⟲ Restart</button>
+            <button id="live" class="secondary" hidden>Back to live</button>
+          </div>
+          <label class="vol">VOL <input type="range" id="vol" min="0" max="1" step="0.01" value="0.85"></label>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="power" id="power"><button id="powerBtn">Turn on</button></div>
+  <div class="hint">Drag the knob, scroll, click the dial, or use ← → (hold Shift to jump stations). R restarts the episode.</div>
+</div>
+
+<script>
+const MIN = 87.5, MAX = 108.5;
+const LOCK = 0.12, FADE = 0.55;   // MHz: clear reception inside LOCK, static fades in by FADE
+const $ = id => document.getElementById(id);
+
+let channels = [];
+let freq = 97.3;
+let tunedCh = null;      // channel currently loaded in the audio element
+let pendingCh = null, pendingTimer = null;
+let replay = false;
+let current = null;      // last /api/now response
+let master = 0.85;
+let summary = "";
+let actx, noiseGain;
+
+const audio = new Audio();
+audio.preload = "auto";
+
+/* ---------- static noise ---------- */
+function startNoise() {
+  actx = new (window.AudioContext || window.webkitAudioContext)();
+  const len = actx.sampleRate * 3, buf = actx.createBuffer(1, len, actx.sampleRate);
+  const d = buf.getChannelData(0);
+  let b0 = 0, b1 = 0, b2 = 0;
+  for (let i = 0; i < len; i++) {       // soft pinkish hiss with some crackle
+    const w = Math.random() * 2 - 1;
+    b0 = 0.99765 * b0 + w * 0.099; b1 = 0.963 * b1 + w * 0.2965; b2 = 0.57 * b2 + w * 1.0526;
+    d[i] = (b0 + b1 + b2 + w * 0.18) * 0.16 + (Math.random() < 0.0004 ? (Math.random() - .5) * 1.2 : 0);
+  }
+  const src = actx.createBufferSource(); src.buffer = buf; src.loop = true;
+  const bp = actx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2400; bp.Q.value = 0.4;
+  noiseGain = actx.createGain(); noiseGain.gain.value = 0;
+  src.connect(bp).connect(noiseGain).connect(actx.destination); src.start();
+}
+
+/* ---------- dial drawing ---------- */
+const pct = f => (f - MIN) / (MAX - MIN) * 100;
+function drawScale() {
+  const ticks = $("ticks"), labels = $("labels");
+  for (let f = 88; f <= 108.001; f += 0.5) {
+    const t = document.createElement("div");
+    const big = Math.abs(f % 2) < 0.01;
+    t.className = "tick " + (big ? "big" : "small"); t.style.left = pct(f) + "%"; ticks.appendChild(t);
+    if (big) { const l = document.createElement("div"); l.className = "lbl"; l.style.left = pct(f) + "%"; l.textContent = f; labels.appendChild(l); }
+  }
+}
+function drawMarks() {
+  const marks = $("marks"); marks.innerHTML = "";
+  channels.forEach(c => {
+    const m = document.createElement("div"); m.className = "mark"; m.id = "m" + c.channel;
+    m.style.left = pct(c.freq) + "%"; m.textContent = "CH " + (c.channel + 1); marks.appendChild(m);
+  });
+}
+
+/* ---------- tuning ---------- */
+function nearest() {
+  let best = null, dist = 99;
+  for (const c of channels) { const d = Math.abs(c.freq - freq); if (d < dist) { dist = d; best = c; } }
+  return { ch: best, dist };
+}
+function signalStrength(dist) { return dist <= LOCK ? 1 : Math.max(0, 1 - (dist - LOCK) / (FADE - LOCK)); }
+
+function setFreq(f) {
+  freq = Math.min(MAX, Math.max(MIN, Math.round(f * 20) / 20));
+  $("needle").style.left = pct(freq) + "%";
+  $("knob").style.transform = `rotate(${(freq - MIN) * 34}deg)`;
+  $("freq").textContent = freq.toFixed(1) + " FM";
+  const { ch, dist } = nearest();
+  const s = ch ? signalStrength(dist) : 0;
+  applyMix(s);
+  document.querySelectorAll(".mark").forEach(m => m.classList.remove("active"));
+  $("dial").classList.toggle("on", s > 0.4);
+  if (ch && s > 0) {
+    $("m" + ch.channel).classList.add("active");
+    if (ch.channel !== tunedCh && ch.channel !== pendingCh) {
+      pendingCh = ch.channel; clearTimeout(pendingTimer);
+      pendingTimer = setTimeout(() => { pendingCh = null; tune(ch.channel); }, 220);
+    }
+  } else if (s === 0 && tunedCh !== null && dist > FADE + 0.4) {
+    // wandered well off any station: drop it, so coming back picks up live again
+    audio.pause(); tunedCh = null; current = null; replay = false; showStatic();
+  }
+}
+function applyMix(s) {
+  audio.volume = master * Math.pow(s, 1.6);
+  if (noiseGain) noiseGain.gain.setTargetAtTime(master * 0.55 * (1 - s) + (s > 0 && s < 1 ? 0.05 : 0), actx.currentTime, 0.05);
+  if (s < 1 && current) {
+    $("show").style.opacity = 0.35 + s * 0.65;
+  } else $("show").style.opacity = 1;
+}
+
+async function tune(ch) {
+  tunedCh = ch; replay = false;
+  let data;
+  try {
+    const r = await fetch("/api/now?ch=" + ch, { cache: "no-store" });
+    data = await r.json();
+    if (!r.ok) throw new Error(data.error || "off air");
+  } catch (e) { setStatus(String(e.message || e)); return; }
+  if (tunedCh !== ch) return;              // user kept turning
+  current = { ...data, fetchedAt: performance.now() };
+  render();
+  audio.src = data.episode.audio;
+  audio.onloadedmetadata = () => {
+    if (tunedCh !== ch) return;
+    const drift = (performance.now() - current.fetchedAt) / 1000;
+    const real = audio.duration;
+    let target = data.offset + drift;
+    if (isFinite(real) && Math.abs(real - data.episode.duration) > 20) {
+      report("/api/duration", { audio: data.episode.audio, duration: real });
+      current.episode.duration = real;
+      if (target >= real - 5) { return tune(ch); }  // that episode is already over for real
+    }
+    audio.currentTime = target;
+    audio.play().catch(() => {});
+  };
+}
+
+function report(url, body) {
+  fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {});
+}
+
+audio.addEventListener("ended", () => {
+  if (tunedCh === null) return;
+  if (!replay && current) report("/api/duration", { audio: current.episode.audio, duration: audio.currentTime });
+  tune(tunedCh);   // pick up whatever the channel is broadcasting now
+});
+let errStreak = 0;
+audio.addEventListener("playing", () => { errStreak = 0; setStatus(summary); });
+audio.addEventListener("error", () => {
+  if (tunedCh === null || !current) return;
+  errStreak++;
+  if (errStreak > 3 || !navigator.onLine) {   // probably our connection, not the episode
+    setStatus("no signal, check the internet connection");
+    setTimeout(() => tunedCh !== null && tune(tunedCh), 15000);
+    return;
+  }
+  setStatus("signal lost on this episode, skipping");
+  report("/api/duration", { audio: current.episode.audio, duration: 0 });
+  setTimeout(() => tunedCh !== null && tune(tunedCh), 1500);
+});
+
+/* ---------- restart / live ---------- */
+function restart() {
+  if (!current) return;
+  replay = true; audio.currentTime = 0; audio.play().catch(() => {}); render();
+}
+function backToLive() { if (tunedCh !== null) tune(tunedCh); }
+$("restart").onclick = restart;
+$("live").onclick = backToLive;
+
+/* ---------- display ---------- */
+const fmt = s => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+  return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
+function render() {
+  if (!current) return showStatic();
+  const e = current.episode;
+  $("show").textContent = e.show; $("title").textContent = e.title;
+  const art = $("art");
+  if (e.image) { art.style.backgroundImage = `url("${e.image}")`; art.textContent = ""; } else { art.style.backgroundImage = ""; art.textContent = "🎙️"; }
+  $("pill").hidden = false; $("pill").textContent = replay ? "REPLAY" : "LIVE"; $("pill").classList.toggle("replay", replay);
+  $("restart").disabled = false; $("live").hidden = !replay;
+}
+function showStatic() {
+  $("show").textContent = "Static"; $("title").textContent = "Turn the knob to find a station.";
+  $("art").style.backgroundImage = ""; $("art").textContent = "📻";
+  $("pill").hidden = true; $("restart").disabled = true; $("live").hidden = true;
+  $("prog").style.width = 0; $("pos").textContent = ""; $("dur").textContent = "";
+}
+setInterval(() => {
+  if (!current || tunedCh === null) return;
+  const d = current.episode.duration, p = audio.currentTime;
+  $("prog").style.width = (100 * p / d) + "%"; $("pos").textContent = fmt(p); $("dur").textContent = fmt(d);
+}, 500);
+function setStatus(t) { $("status").textContent = t; }
+
+/* ---------- input ---------- */
+let drag = null;
+$("knob").addEventListener("pointerdown", e => {
+  const r = $("knob").getBoundingClientRect();
+  drag = { cx: r.left + r.width / 2, cy: r.top + r.height / 2, a: null };
+  $("knob").setPointerCapture(e.pointerId);
+});
+$("knob").addEventListener("pointermove", e => {
+  if (!drag) return;
+  const a = Math.atan2(e.clientY - drag.cy, e.clientX - drag.cx) * 180 / Math.PI;
+  if (drag.a !== null) { let da = a - drag.a; if (da > 180) da -= 360; if (da < -180) da += 360; setFreq(freq + da / 34); }
+  drag.a = a;
+});
+$("knob").addEventListener("pointerup", () => drag = null);
+const dialDrag = e => { const r = $("dial").getBoundingClientRect(); setFreq(MIN + (e.clientX - r.left) / r.width * (MAX - MIN)); };
+let dialDown = false;
+$("dial").addEventListener("pointerdown", e => { dialDown = true; $("dial").setPointerCapture(e.pointerId); dialDrag(e); });
+$("dial").addEventListener("pointermove", e => dialDown && dialDrag(e));
+$("dial").addEventListener("pointerup", () => dialDown = false);
+window.addEventListener("wheel", e => { e.preventDefault(); setFreq(freq + Math.sign(e.deltaY || e.deltaX) * -0.05); }, { passive: false });
+window.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+    const dir = e.key === "ArrowRight" ? 1 : -1;
+    if (e.shiftKey) {
+      const list = channels.map(c => c.freq).sort((a, b) => a - b);
+      const next = dir > 0 ? list.find(f => f > freq + 0.05) : [...list].reverse().find(f => f < freq - 0.05);
+      if (next) setFreq(next);
+    } else setFreq(freq + dir * 0.1);
+    e.preventDefault();
+  }
+  if (e.key === "r" || e.key === "R") restart();
+});
+$("vol").oninput = e => { master = +e.target.value; setFreq(freq); };
+
+/* ---------- boot ---------- */
+async function loadChannels() {
+  try {
+    const r = await (await fetch("/api/channels", { cache: "no-store" })).json();
+    if (!channels.length) { channels = r.channels; drawMarks(); }
+    summary = `${r.channels.length} stations · ${r.shows} shows · ${r.episodes} episodes`;
+    setStatus(r.status === "ready" ? summary : r.status + "…");
+    if (r.status !== "ready") setTimeout(loadChannels, 3000);
+    return r.status === "ready";
+  } catch { setStatus("can't reach the server"); setTimeout(loadChannels, 3000); return false; }
+}
+(async () => {
+  await loadChannels(); drawScale(); setFreq(freq);
+})();
+$("powerBtn").onclick = async () => {
+  $("power").remove(); startNoise();
+  while (!channels.length || !(await loadChannels())) await new Promise(r => setTimeout(r, 2000));
+  const pick = channels[Math.floor(Math.random() * channels.length)];
+  setFreq(pick.freq + (Math.random() - .5) * 0.6);   // start near a random station, a little off
+};
+</script>
+</body>
+</html>

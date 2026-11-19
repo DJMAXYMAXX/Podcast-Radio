@@ -1,0 +1,38 @@
+{
+  "port": 8088,
+  "channels": 10,
+  "discover": true,
+  "shows_per_term": 4,
+  "episodes_per_show": 12,
+  "refresh_hours": 24,
+  "discovery_terms": [
+    "history", "comedy", "true crime", "science", "philosophy", "cooking",
+    "football", "basketball", "cycling", "running", "music history", "jazz",
+    "hip hop", "film", "filmmaking", "photography", "design", "architecture",
+    "technology", "programming", "business", "economics", "investing", "news",
+    "politics", "law", "medicine", "psychology", "relationships", "parenting",
+    "kids stories", "audio drama", "horror fiction", "sci-fi", "poetry",
+    "books", "language learning", "travel", "outdoors", "gardening", "cars",
+    "aviation", "space", "nature", "birds", "religion", "meditation",
+    "fashion", "art", "theater", "video games", "anime", "wrestling",
+    "chess", "conspiracy", "ghost stories", "interviews", "storytelling",
+    "local news new york", "food", "wine", "beer", "climate", "math",
+    "education", "careers", "self improvement", "mystery", "documentary",
+    "sports betting", "fishing", "woodworking", "spanish", "french",
+    "mythology", "ancient rome", "world war", "true stories", "improv"
+  ],
+  "curated_feeds": [
+    "https://feeds.npr.org/510289/podcast.xml",
+    "https://feeds.npr.org/381444908/podcast.xml",
+    "https://feeds.npr.org/344098539/podcast.xml",
+    "https://podcasts.files.bbci.co.uk/b006qykl.rss",
+    "https://podcasts.files.bbci.co.uk/b006qnmr.rss",
+    "https://www.thisamericanlife.org/podcast/rss.xml",
+    "https://feeds.simplecast.com/BqbsxVfO",
+    "https://feeds.simplecast.com/EmVW7VGp",
+    "https://feeds.megaphone.fm/stuffyoushouldknow",
+    "https://feeds.megaphone.fm/darknetdiaries",
+    "https://atp.fm/rss",
+    "https://lexfridman.com/feed/podcast/"
+  ]
+}
