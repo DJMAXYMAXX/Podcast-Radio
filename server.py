@@ -103,57 +103,68 @@ def parse_duration(text):
         return None
 
 
-def parse_feed(xml_bytes, feed_url, max_eps):
-    root = ET.fromstring(xml_bytes)
-    channel = root.find("channel")
-    if channel is None:
-        return []
-    show = (channel.findtext("title") or "Unknown show").strip()
-    show_img = None
-    img = channel.find(ITUNES_NS + "image")
-    if img is not None:
-        show_img = img.get("href")
-    if not show_img:
-        show_img = channel.findtext("image/url")
-
-    eps = []
-    for item in channel.findall("item"):
-        enc = item.find("enclosure")
-        if enc is None or not enc.get("url"):
-            continue
-        if "audio" not in (enc.get("type") or "audio"):
-            continue
-        dur = parse_duration(item.findtext(ITUNES_NS + "duration"))
-        if not dur:
-            # Rough guess from file size at ~128 kbps, else 45 minutes.
-            try:
-                dur = int(int(enc.get("length") or 0) / 16000) or None
-            except ValueError:
-                dur = None
-        dur = dur or 2700
-        if dur < 180 or dur > 4 * 3600:
-            continue  # skip trailers and marathon files
-        ep_img = None
-        ei = item.find(ITUNES_NS + "image")
-        if ei is not None:
-            ep_img = ei.get("href")
-        eps.append(
-            {
-                "show": show,
-                "title": (item.findtext("title") or "Untitled").strip(),
-                "audio": enc.get("url"),
-                "duration": dur,
-                "image": ep_img or show_img,
-                "date": (item.findtext("pubDate") or "").strip(),
-                "feed": feed_url,
-            }
-        )
-    # Mix of recent and back-catalog episodes, not just the newest.
+def parse_feed(feed_url, max_eps, max_scan=60, max_bytes=6_000_000):
+    """Stream a feed and stop early, so huge feeds never sit in memory whole."""
+    req = urllib.request.Request(feed_url, headers={"User-Agent": UA})
+    parser = ET.XMLPullParser(events=("start", "end"))
+    show, show_img, eps, depth_tags = None, None, [], []
+    read = 0
+    with urllib.request.urlopen(req, timeout=20) as r:
+        while len(eps) < max_scan and read < max_bytes:
+            chunk = r.read(65536)
+            if not chunk:
+                break
+            read += len(chunk)
+            parser.feed(chunk)
+            for ev, el in parser.read_events():
+                if ev == "start":
+                    depth_tags.append(el.tag)
+                    continue
+                depth_tags.pop()
+                parent = depth_tags[-1] if depth_tags else None
+                if parent == "channel":
+                    if el.tag == "title" and show is None:
+                        show = (el.text or "").strip() or "Unknown show"
+                    elif el.tag == ITUNES_NS + "image" and not show_img:
+                        show_img = el.get("href")
+                    elif el.tag == "image" and not show_img:
+                        show_img = el.findtext("url")
+                    if el.tag == "item":
+                        ep = item_to_episode(el, show or "Unknown show", show_img, feed_url)
+                        if ep:
+                            eps.append(ep)
+                    el.clear()
     if len(eps) > max_eps:
         recent = eps[: max_eps // 2]
         older = random.Random(feed_url).sample(eps[max_eps // 2 :], max_eps - len(recent))
         eps = recent + older
     return eps
+
+
+def item_to_episode(item, show, show_img, feed_url):
+    enc = item.find("enclosure")
+    if enc is None or not enc.get("url"):
+        return None
+    if "audio" not in (enc.get("type") or "audio"):
+        return None
+    dur = parse_duration(item.findtext(ITUNES_NS + "duration"))
+    if not dur:
+        try:
+            dur = int(int(enc.get("length") or 0) / 16000) or None
+        except ValueError:
+            dur = None
+    dur = dur or 2700
+    if dur < 180 or dur > 4 * 3600:
+        return None
+    ei = item.find(ITUNES_NS + "image")
+    return {
+        "show": show,
+        "title": (item.findtext("title") or "Untitled").strip(),
+        "audio": enc.get("url"),
+        "duration": dur,
+        "image": (ei.get("href") if ei is not None else None) or show_img,
+        "feed": feed_url,
+    }
 
 
 def build_library():
@@ -168,15 +179,21 @@ def build_library():
 
     def one(url):
         try:
-            return parse_feed(http_get(url), url, cfg.get("episodes_per_show", 12))
+            return parse_feed(url, cfg.get("episodes_per_show", 12))
         except Exception as e:
             log("feed failed:", url[:80], type(e).__name__)
             return []
 
     episodes = []
-    with ThreadPoolExecutor(12) as pool:
+    done = 0
+    with ThreadPoolExecutor(4) as pool:
         for eps in pool.map(one, feeds):
             episodes.extend(eps)
+            done += 1
+            if done == 40 and not STATION.library and episodes:
+                # get on air early instead of waiting for every feed
+                log(f"On air early with {len(episodes)} episodes, still loading...")
+                STATION.set_library(sorted(episodes, key=lambda e: e["audio"]))
     # De-duplicate by audio url, keep a stable order so schedules are repeatable.
     seen, unique = set(), []
     for e in episodes:
